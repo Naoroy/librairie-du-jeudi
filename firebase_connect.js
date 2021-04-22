@@ -1,5 +1,6 @@
 const firebase = require('firebase-admin')
-const serviceAccount = require('./librairie-du-jeudi-firebase-adminsdk-97q9e-304aa3f5e2.json')
+const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN)
+
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),

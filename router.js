@@ -1,28 +1,132 @@
+const router = require('express').Router()
 const db = require('./firebase_connect')
-module.exports = require('express').Router()
-  .get('/',           toDo)
+const Books = db.ref('books')
+
+router
+  .get('/',           map)
   .get('/books',      getBooks)
-  .get('/book:id',    toDo)
-  .post('/book',      toDo)
-  .put('/book:id',    toDo)
-  .delete('/book:id', toDo)
+  .post('/book',      createBook)
+  .put('/book:id',    updateBook)
+  .delete('/book:id', deleteBook)
 
 
+/*
+ * returns all books,
+ * if query = id, search books by id
+ * if query = name, search books by name
+ */
 function getBooks(req, res) {
-  /* Query database.books */
-  db.ref('books').once('value').then(snapshot => {
-    const books = []
+  const id = req.query.id
+  const name = req.query.name
 
-    snapshot.forEach(child => {
-      const bookID = child.key
-      const bookData = child.val()
+  if (id) {
+    getBooksByID(id)
+      .then((books) => {
+        res.send(books)
+      })
+      .catch((error) => res.status(404).send("Not found"))
+  } else {
+    getAllBooks()
+      .then((books) => {
+        res.send(books)
+      })
+      .catch((error) => res.status(404).send("Not found"))
+  }
+  /* Query database.books, data is stored in snapshot */
+  //Books.once('value').then(snapshot => {
+  //  console.log("book?")
+  //  const books = []
+  //  snapshot.forEach(child => {
+  //    books.push({ id: child.key, ...child.val() })
+  //  })
+  //  res.send(books)
+  //})
+  //.catch(error => res.send(error))
+  //if (false) {
+  //  books = getBooksByID(id)
+  //  console.log(id)
+  //  res.send()
+  //  return
+  //}
+  //else if (name) books = getBooksByName(name)
 
-      books.push({ id: bookID, ...bookData })
+}
+
+function getAllBooks() {
+  return new Promise((fulfill, reject) => {
+    Books.once('value').then(snapshot => {
+      console.log("book?")
+      const books = []
+      snapshot.forEach(child => {
+        books.push({ id: child.key, ...child.val() })
+      })
+      fulfill(books)
     })
-
-    res.send({books})
+    .catch(error => reject(error))
   })
-  .catch(error => console.log(error))
+}
+
+function getBooksByID(bookID) {
+  return new Promise((fulfill, reject) => {
+    Books.once('value').then(snapshot => {
+      const books = []
+
+      snapshot.forEach(child => {
+        const id = child.key
+        const data = child.val()
+
+        if (id.length < 5) return
+        else if (id.search(bookID) == -1) { return }
+        else { books.push({ id: id, ...data }) }
+      })
+
+      fulfill(books)
+    })
+  })
+}
+
+function getBooksByName(req, res) {
+
+}
+
+function createBook(req, res) {
+  //const book = req.body.book
+  const book = {
+    name: 'Les malheurs de Toto',
+    author: 'Toto',
+    description: 'Toto nous raconte sont parcours de développeur, du lycée '+
+      'jusqu\'a son poste actuel : Responsable DevOps Senior',
+    genre: 'Autobiographie',
+    date: Date.now()
+  }
+  if (!book) return res.send('data error')
+  console.log(book)
+  Books.push(book)
+  res.send('boop')
+}
+
+function updateBook(req, res) {
+
+}
+
+function deleteBook(req, res) {
+
+}
+
+function map(req, res) {
+  res.send(`
+  <p>
+  <span style="color:red">à faire</span>
+  <span style="color:orange">en cours</span>
+  <span style="color:green">fini</span>
+  </p>
+  <hr>
+  <p style="color:green">GET /books</p>
+  <p style="color:green">GET /books?id=(au moins 5 char de l'id)</p>
+  <p style="color:orange">POST /book</p>
+  <p style="color:red">PUT /book</p>
+  <p style="color:red">DELETE /book?id=(au moins 5 char de l'id)</p>
+  `)
 }
 
 function toDo(req, res) {
@@ -40,3 +144,4 @@ function toDo(req, res) {
 }
 
 
+module.exports = router

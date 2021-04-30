@@ -32,28 +32,12 @@ function getBooks(req, res) {
       })
       .catch((error) => res.status(404).send("Not found"))
   }
-  /* Query database.books, data is stored in snapshot */
-  //Books.once('value').then(snapshot => {
-  //  console.log("book?")
-  //  const books = []
-  //  snapshot.forEach(child => {
-  //    books.push({ id: child.key, ...child.val() })
-  //  })
-  //  res.send(books)
-  //})
-  //.catch(error => res.send(error))
-  //if (false) {
-  //  books = getBooksByID(id)
-  //  console.log(id)
-  //  res.send()
-  //  return
-  //}
   //else if (name) books = getBooksByName(name)
-
 }
 
 function getAllBooks() {
   return new Promise((fulfill, reject) => {
+    /* Query database.books, data is stored in snapshot */
     Books.once('value').then(snapshot => {
       console.log("book?")
       const books = []
@@ -90,19 +74,18 @@ function getBooksByName(req, res) {
 }
 
 function createBook(req, res) {
-  //const book = req.body.book
-  const book = {
-    name: 'Les malheurs de Toto',
-    author: 'Toto',
-    description: 'Toto nous raconte sont parcours de développeur, du lycée '+
-      'jusqu\'a son poste actuel : Responsable DevOps Senior',
-    genre: 'Autobiographie',
-    date: Date.now()
+  const book = req.body
+
+  if (!book) { res.status(422).send('Missing book data') }
+  else if (!book.name) { res.status(422).send('Missing field "name"') }
+  else if (!book.author) { res.status(422).send('Missing field "author"') }
+  else if (!book.description) { res.status(422).send('Missing field "description"') }
+  else if (!book.genre) { res.status(422).send('Missing field "genre"') }
+  else if (!book.date) { res.status(422).send('Missing field "date"') }
+  else {
+    Books.push(book)
+    res.send('Book succesfully added')
   }
-  if (!book) return res.send('data error')
-  console.log(book)
-  Books.push(book)
-  res.send('boop')
 }
 
 function updateBook(req, res) {
@@ -127,20 +110,6 @@ function map(req, res) {
   <p style="color:red">PUT /book</p>
   <p style="color:red">DELETE /book?id=(au moins 5 char de l'id)</p>
   `)
-}
-
-function toDo(req, res) {
-  res.send({
-    routes: {
-      books: [
-          'GET    /books',
-          'GET    /book/[id]',
-          'POST   /book/[id]',
-          'PUT    /book/[id]',
-          'DELETE /book/[id]',
-        ]
-    }
-  })
 }
 
 

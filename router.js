@@ -5,15 +5,44 @@ const Books = db.ref('books')
 router
   .get('/',           map)
   .get('/books',      getBooks)
-  .post('/book',      createBook)
+  .post('/book',      validateBook,
+                      createBook)
   .put('/book:id',    updateBook)
   .delete('/book:id', deleteBook)
 
 
 /*
- * returns all books,
- * if query = id, search books by id
- * if query = name, search books by name
+ * middleware function
+ * sends an error message if required fields are missing
+ * from JSON object
+ */
+function validateBook(req, res, next) {
+  const book = req.body
+  const errorStack = []
+  const requiredFields = {
+    name: true,
+    author: true,
+    description: true,
+    genre: true,
+    date: true,
+  }
+
+  for (let key in requiredFields) {
+    if (requiredFields[key] && !book[key]) {
+      errorStack.push(`missing property ${key} in POST data`)
+    }
+  }
+  if (errorStack.length > 0) {
+    res.status(422).send(errorStack.join('\n'))
+    return 
+  }
+  next()
+}
+
+/*
+ * send all books as JSON response,
+ * if query.id is not undefined, search books by id
+ * if query.name is not undefined, search books by name
  */
 function getBooks(req, res) {
   const id = req.query.id
@@ -24,22 +53,32 @@ function getBooks(req, res) {
       .then((books) => {
         res.send(books)
       })
-      .catch((error) => res.status(404).send("Not found"))
-  } else {
+      .catch((error) => {
+        res.status(404).send({ error })
+      })
+  }
+  else if (name) {
+    getBooksByName(name)
+      .then((books) => {
+        res.send(books)
+      })
+      .catch((error) => {
+        res.status(404).send({ error })
+      })
+  }
+  else {
     getAllBooks()
       .then((books) => {
         res.send(books)
       })
-      .catch((error) => res.status(404).send("Not found"))
+      .catch((error) => res.status(404).send({ error }))
   }
-  //else if (name) books = getBooksByName(name)
 }
 
 function getAllBooks() {
   return new Promise((fulfill, reject) => {
     /* Query database.books, data is stored in snapshot */
     Books.once('value').then(snapshot => {
-      console.log("book?")
       const books = []
       snapshot.forEach(child => {
         books.push({ id: child.key, ...child.val() })
@@ -52,6 +91,10 @@ function getAllBooks() {
 
 function getBooksByID(bookID) {
   return new Promise((fulfill, reject) => {
+    if (bookID.length < 5) {
+      reject('id too short, must be at least 5 characters')
+      return
+    }
     Books.once('value').then(snapshot => {
       const books = []
 
@@ -59,33 +102,48 @@ function getBooksByID(bookID) {
         const id = child.key
         const data = child.val()
 
-        if (id.length < 5) return
-        else if (id.search(bookID) == -1) { return }
-        else { books.push({ id: id, ...data }) }
+        if (id.search(bookID) != -1) {
+          books.push({ id: id, ...data })
+        }
       })
+      if (books.length == 0) {
+          reject('book(s) not found')
+      }
 
       fulfill(books)
     })
   })
 }
 
-function getBooksByName(req, res) {
-
+function getBooksByName(bookName) {
+  return new Promise((fulfill, reject) => {
+    const books = []
+    Books.once('value').then((snapshot) => {
+      snapshot.forEach(child => {
+        const book = child.val()
+        const name = book.name
+        if (name && name.search(bookName) != -1) {
+          books.push(book)
+        }
+      })
+      if (books.length < 1) {
+        reject("no match for this name")
+      }
+      fulfill(books)
+    })
+  })
 }
 
+/*
+ * add book to firebase.book
+ * field "id" is created by firebase
+ * the "book" object is treated like an array (Book.push)
+ */
 function createBook(req, res) {
   const book = req.body
 
-  if (!book) { res.status(422).send('Missing book data') }
-  else if (!book.name) { res.status(422).send('Missing field "name"') }
-  else if (!book.author) { res.status(422).send('Missing field "author"') }
-  else if (!book.description) { res.status(422).send('Missing field "description"') }
-  else if (!book.genre) { res.status(422).send('Missing field "genre"') }
-  else if (!book.date) { res.status(422).send('Missing field "date"') }
-  else {
-    Books.push(book)
-    res.send('Book succesfully added')
-  }
+  Books.push(book)
+  res.send('Book succesfully added')
 }
 
 function updateBook(req, res) {
@@ -106,7 +164,7 @@ function map(req, res) {
   <hr>
   <p style="color:green">GET /books</p>
   <p style="color:green">GET /books?id=(au moins 5 char de l'id)</p>
-  <p style="color:orange">POST /book</p>
+  <p style="color:green">POST /book</p>
   <p style="color:red">PUT /book</p>
   <p style="color:red">DELETE /book?id=(au moins 5 char de l'id)</p>
   `)
